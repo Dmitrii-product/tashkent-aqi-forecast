@@ -1,0 +1,3 @@
+# experiments only (aqf.nn: neural network next to the LightGBM models); production does not need it
+-r requirements.txt
+torch==2.14.1

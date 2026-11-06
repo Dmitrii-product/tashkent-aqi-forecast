@@ -1,0 +1,16 @@
+{
+ "1-1": "pred_v3_mm_l1",
+ "2-2": "pred_v3_mm_l1",
+ "3-3": "pred_v3_mm_l1",
+ "4-6": "tuned_4_6",
+ "7-12": "pred_v3_mm_cams",
+ "13-18": "pred_v3_mm_cams",
+ "19-24": "pred_v3_mm_cams",
+ "25-36": "pred_v3_mm_big",
+ "37-48": "tuned_37_48",
+ "49-72": "pred_v3_mm_big",
+ "73-96": "pred_v3_mm_big",
+ "97-120": "pred_v3_mm_l1",
+ "121-144": "pred_v3_mm_big",
+ "145-168": "pred_v3_mm_big"
+}

@@ -1,0 +1,10 @@
+lightgbm==4.7.0
+numpy==2.5.4
+pandas==3.0.6
+pyarrow==26.0.0
+requests==2.34.2
+h5py==3.14.0  # aqf.silam: reads the SILAM HDF5 files remotely
+rasterio==1.5.2  # aqf.satellite: reads windows of the Sentinel-5P GeoTIFFs remotely
+scikit-learn==1.9.1
+# experiments only (aqf.experiments: XGBoost variant)
+xgboost==3.4.1

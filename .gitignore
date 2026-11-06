@@ -1,0 +1,14 @@
+# Data and everything derived from it stay local (download with: python -m aqf.bootstrap)
+data/*
+!data/processed/
+data/processed/*
+# model configuration: which algorithm serves each horizon group (chosen on winter 2024/25)
+!data/processed/horizon_choice.json
+output/
+logs/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
+tools/
