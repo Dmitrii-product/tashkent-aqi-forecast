@@ -273,5 +273,7 @@ by the smoke test).
 ## Licence and disclaimer
 
 Code and documentation: MIT (`LICENSE`), "as is", without warranty. Trained models: CC BY-NC 4.0 on
-Hugging Face. Third-party data are not covered by either licence and are used under their owners'
-terms. What the project does not promise: `DISCLAIMER.md`.
+Hugging Face. No data are included; third-party data (IQAir via tashkentairdata.uz, the U.S. Embassy
+monitor via AirNow, Open-Meteo, Copernicus CAMS and Sentinel-5P, FMI SILAM, NASA FIRMS) are not
+covered by either licence and are used under their owners' terms. What the project does not
+promise: `DISCLAIMER.md`.

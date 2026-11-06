@@ -19,10 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-This license covers the source code and documentation of this repository only.
-No data are included. Data from third-party sources (IQAir via tashkentairdata.uz,
-the U.S. Embassy monitor via AirNow, Open-Meteo, Copernicus CAMS and Sentinel-5P,
-FMI SILAM, NASA FIRMS) are not covered: they belong to their owners and are used
-under their terms. The trained models are published separately under CC BY-NC 4.0
-(see README.md). See DISCLAIMER.md.
