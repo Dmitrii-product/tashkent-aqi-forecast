@@ -12,11 +12,17 @@ ring 30–50 km out (background), in µmol/m². OFFL (final, about 9 days later)
 once, data/satellite/no2/<YYYYMMDD>_<OFFL|NRTI>.json, only after the day's later orbits are in the
 bucket; a cloudy day is stored with n = 0 (that is a result, not a gap).
 
-Fires. FIRMS publishes the last 7 days of VIIRS (Suomi NPP) detections openly and whole years in
-per-country archives the following year (2018–2025 now; January–October 2026 is not public yet).
+Fires. FIRMS publishes the last 7 days of VIIRS detections openly and whole years in per-country
+archives the following year (2018–2025 now; 2026 is not public yet). Suomi NPP fed FIRMS until
+13:00 UTC on 2 November 2026, when NASA ended its production; NOAA-20 carries the same VIIRS in the
+same orbit about 50 minutes ahead and is FIRMS's drop-in replacement (its 2025 archive has 5949
+detections within 200 km against Suomi NPP's 5727, month by month alike). So the 7-day file is
+NOAA-20's, archives up to 2025 are Suomi NPP's (stored) and from 2026 NOAA-20's. Days 2–10 November
+2026 fell between the two streams; NOAA-20's 2026 archive will fill them.
 Detections within 200 km are kept: each complete day of the 7-day file once
 (data/satellite/firms/<YYYYMMDD>.parquet, also when empty — no fires is a result), the yearly
-archives of Uzbekistan, Kazakhstan, Tajikistan and Kyrgyzstan once per year (archive_<year>.parquet).
+archives of Uzbekistan, Kazakhstan, Tajikistan and Kyrgyzstan once per year (archive_<year>.parquet);
+a yearly archive, science quality, replaces the day files of its year.
 Industrial heat sources (the archive's type 2 and places that glow on 30+ days, such as the Almalyk
 works) are counted apart from fires.
 
@@ -56,9 +62,12 @@ ORBIT_RE = re.compile(r"S5P_(\w{4})_L2__NO2____(\d{8}T\d{6})_(\d{8}T\d{6})_(\d{5
 TROP = "PRODUCT_nitrogendioxide_tropospheric_column_4326.tif"
 
 FIRMS = "https://firms.modaps.eosdis.nasa.gov/data"
-NRT_FILE = f"{FIRMS}/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Russia_Asia_7d.csv"
+NRT_FILE = f"{FIRMS}/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_Russia_Asia_7d.csv"  # Suomi NPP's is empty since 2 Nov 2026
 COUNTRIES = ("Uzbekistan", "Kazakhstan", "Tajikistan", "Kyrgyzstan")
 ARCHIVE_FROM = 2018
+SNPP_LAST_YEAR = 2025  # yearly archives up to this year are Suomi NPP's (viirs-snpp), later ones NOAA-20's (viirs-jpss1)
+PARTIAL_DAYS = {"20261102"}  # Suomi NPP day files without their night pass (production stopped at 13:00 UTC); kept, not counted
+FIRST_DAY_BY = 400  # HHMM UTC: the 7-day window's first day is complete if it starts before this (Tashkent passes ~07-10, 19-23)
 NEAR_KM, CLOSE_KM = 200, 50
 STATIC_DAYS = 30  # a 0.01° cell detected on this many days of the archive is a heat source, not a fire
 
@@ -197,7 +206,7 @@ def _near(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["km"] <= NEAR_KM]
     conf = df["confidence"].astype(str).str[0].str.lower()  # n/h/l in the archive, nominal/high/low in NRT
     df["conf"] = conf
-    keep = ["latitude", "longitude", "km", "acq_date", "acq_time", "frp", "conf", "daynight"] + (["type"] if "type" in df else [])
+    keep = ["latitude", "longitude", "km", "acq_date", "acq_time", "frp", "conf", "daynight"] + [c for c in ("type", "satellite") if c in df]
     return df[keep].reset_index(drop=True)
 
 
@@ -219,7 +228,8 @@ def fetch_firms() -> int:
         near = _near(df)
         today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
         n = 0
-        for d in dates[1:]:  # the first day of the window may be cut at its start
+        first = df.loc[df["acq_date"] == dates[0], "acq_time"].min()
+        for d in dates[0 if first < FIRST_DAY_BY else 1:]:  # the first day may be cut at its start
             if pd.Timestamp(d) > today - pd.Timedelta(days=2):  # night passes and late granules still coming
                 continue
             path = FIRMS_DIR / f"{pd.Timestamp(d):%Y%m%d}.parquet"
@@ -235,9 +245,10 @@ def fetch_firms() -> int:
         if path.exists():
             continue
         parts = []
+        src = "viirs-snpp" if year <= SNPP_LAST_YEAR else "viirs-jpss1"
         try:
             for c in COUNTRIES:
-                r = s.get(f"{FIRMS}/country/viirs-snpp/{year}/viirs-snpp_{year}_{c}.csv", timeout=600)
+                r = s.get(f"{FIRMS}/country/{src}/{year}/{src}_{year}_{c}.csv", timeout=600)
                 if r.status_code == 404:
                     raise FileNotFoundError(f"{c} {year} not published yet")
                 r.raise_for_status()
@@ -276,7 +287,9 @@ def no2_series() -> pd.DataFrame:
 def fire_series() -> pd.DataFrame:
     """Fires per day within 200 and 50 km (heat sources apart); days with no data are absent."""
     arch = [pd.read_parquet(p) for p in sorted(FIRMS_DIR.glob("archive_*.parquet"))]
-    nrt = {p.stem: pd.read_parquet(p) for p in sorted(FIRMS_DIR.glob("????????.parquet"))}
+    arch_years = {int(p.stem[-4:]) for p in FIRMS_DIR.glob("archive_*.parquet")}
+    nrt = {p.stem: pd.read_parquet(p) for p in sorted(FIRMS_DIR.glob("????????.parquet"))  # an archive year replaces its days
+           if p.stem not in PARTIAL_DAYS and int(p.stem[:4]) not in arch_years}
     a = pd.concat(arch, ignore_index=True) if arch else pd.DataFrame()
     cell = lambda df: list(zip((df["latitude"] * 100).round().astype(int), (df["longitude"] * 100).round().astype(int)))  # noqa: E731
     static = set()
@@ -288,7 +301,7 @@ def fire_series() -> pd.DataFrame:
     frames = [a] + [df.assign(acq_date=f"{pd.Timestamp(k):%Y-%m-%d}") for k, df in nrt.items()]
     all_ = pd.concat([f for f in frames if len(f)], ignore_index=True) if any(len(f) for f in frames) else pd.DataFrame()
     covered = set(pd.to_datetime(a["acq_date"]).dt.normalize()) if len(a) else set()
-    for y in {int(p.stem[-4:]) for p in FIRMS_DIR.glob("archive_*.parquet")}:  # an archive year covers every day of it
+    for y in arch_years:  # an archive year covers every day of it
         covered |= set(pd.date_range(f"{y}-01-01", f"{y}-12-31"))
     covered |= {pd.Timestamp(k) for k in nrt}
     out = pd.DataFrame(index=pd.DatetimeIndex(sorted(covered), name="date"))
@@ -344,7 +357,8 @@ def score() -> dict:
             years.append({"year": y, "to": f"{t1:%Y-%m-%d}",
                           "no2": round(float(w["no2"].mean()), 1) if "no2" in w and w["no2"].notna().any() else None,
                           "no2_days": int(w["no2"].notna().sum()) if "no2" in w else 0,
-                          "fires": int(w["fires"].sum()) if "fires" in w and w["fires"].notna().any() else None,
+                          # a sum over part of the 30 days would not compare with the other years
+                          "fires": int(w["fires"].sum()) if "fires" in w and w["fires"].notna().all() else None,
                           "aqi": round(float(w["aqi"].mean())) if w["aqi"].notna().any() else None})
     # days between the last yearly fire archive and the first day of the 7-day file have no fire data
     arch_years = sorted(int(p.stem[-4:]) for p in FIRMS_DIR.glob("archive_*.parquet"))

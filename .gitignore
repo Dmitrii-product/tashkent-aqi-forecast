@@ -12,3 +12,11 @@ __pycache__/
 .DS_Store
 .claude/
 tools/
+# screenshots and other images stay local (personal: chats, sites)
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.heic
+*.gif
+*.pdf

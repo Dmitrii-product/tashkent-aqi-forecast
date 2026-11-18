@@ -22,12 +22,13 @@ import time
 import pandas as pd
 
 from .data import PROC, ROOT
+from .icon import FILES as ICONS
 
 OUT = ROOT / "output"
 SITE = OUT / "site"
 LOG = ROOT / "data" / "forecast_log"
 URL = "https://tashkent-aqi.vercel.app"
-DEPLOYABLE = {"index.html", "api/latest.js", "vercel.json"}  # everything else in output/site is ignored or wrong
+DEPLOYABLE = {"index.html", "api/latest.js", "vercel.json", *ICONS}  # everything else in output/site is ignored or wrong
 NOT_PUBLIC = ["/README.md", "/run_daily.sh", "/requirements.txt", "/aqf/forecast.py", "/.env.local"]
 DATA_RE = re.compile(r'<script type="application/json" id="data">(.*?)</script>', re.S)
 INLINE_JS_RE = re.compile(r"<script(?![^>]*\bsrc=)(?![^>]*application/json)[^>]*>(.*?)</script>", re.S)
@@ -225,6 +226,9 @@ def check_page(c: Checks, path, fc: dict | None, vercel: bool) -> None:
         c.ok(html.startswith("<!doctype html>"), f"{rel}: document head missing")
         c.ok("api/latest" in html, f"{rel}: live-reading call missing")
         c.ok("/_vercel/insights/script.js" in html, f"{rel}: analytics script missing", warn=True)
+        head = html.split("</head>", 1)[0]
+        c.ok(all(f'href="/{n}"' in head for n in ICONS),
+             f"{rel}: site icon links missing from the head", warn=True)
 
 
 def check_deploy_folder(c: Checks) -> None:
@@ -239,6 +243,8 @@ def check_deploy_folder(c: Checks) -> None:
         if rel not in DEPLOYABLE:
             extra.append(rel)
     c.ok(not extra, f"output/site holds files that would be published: {extra[:5]}")
+    for name in ICONS:
+        c.ok((SITE / name).exists() and (SITE / name).stat().st_size > 100, f"output/site/{name} (site icon) missing", warn=True)
     js = SITE / "api" / "latest.js"
     if c.ok(js.exists(), "output/site/api/latest.js is missing"):
         good, err = _js_ok(js.read_text())
@@ -330,6 +336,9 @@ def live() -> int:
          "/api/latest?fresh=1 bypasses the edge cache")
     r = get("/_vercel/insights/script.js")
     c.ok(getattr(r, "status_code", None) == 200, "analytics script is not served", warn=True)
+    for name in ICONS:
+        r = get("/" + name)
+        c.ok(getattr(r, "status_code", None) == 200, f"site icon /{name} is not served", warn=True)
     # the repository must never be served (2026-10-18: a git-linked push published the code)
     for path in NOT_PUBLIC:
         r = get(path)

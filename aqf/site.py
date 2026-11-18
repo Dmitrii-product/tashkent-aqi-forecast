@@ -6,7 +6,8 @@ calls its own serverless function /api/latest, which reads the latest value on d
 (5-minute shared cache; the refresh button asks for a fresh value). The Vercel copy also
 carries the Vercel Web Analytics script and security headers (a hash-based CSP and others).
 
-Writes output/site/{index.html, api/latest.js, vercel.json}; run_daily.sh then deploys the
+Writes output/site/{index.html, api/latest.js, vercel.json} and the site icon (aqf.icon:
+icon.svg, favicon.ico, apple-touch-icon.png, linked from the head); run_daily.sh then deploys the
 folder with the Vercel CLI (`vercel deploy --prod`, project linked in output/site/.vercel).
 
     .venv/bin/python -m aqf.site
@@ -18,6 +19,7 @@ import hashlib
 import json
 import re
 
+from . import icon
 from .data import ROOT
 
 SITE = ROOT / "output" / "site"
@@ -96,7 +98,7 @@ def headers(html: str) -> list[dict]:
 
 def build() -> dict[str, str]:
     page = (ROOT / "output" / "dashboard.html").read_text()
-    index = HEAD + page + ANALYTICS + "</body></html>"
+    index = HEAD.replace("</head>", icon.LINKS + "</head>") + page + ANALYTICS + "</body></html>"
     files = {
         "index.html": index,
         "api/latest.js": LATEST_JS,
@@ -106,6 +108,7 @@ def build() -> dict[str, str]:
         p = SITE / name
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text)
+    icon.write(SITE)
     (SITE / "deploy_files.json").unlink(missing_ok=True)
     return files
 

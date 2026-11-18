@@ -21,7 +21,7 @@ with numbers: `docs/EXPERIMENTS.md`; accuracy and method: `README.md`.
  nn.py: neural network (blended from hour 7, blend.py) → <time>_nn.json ──┤
                                                                           ▼
  dashboard.py + dashboard_template.html ─► output/dashboard.html (self-contained page)
- site.py ─► output/site/{index.html, api/latest.js, vercel.json} ─► Vercel
+ site.py ─► output/site/{index.html, api/latest.js, vercel.json, icons} ─► Vercel
  smoke.py: checks before and after a deploy (deploy_site.sh)
  scheduler: run_daily.sh (~07:15 Tashkent time), run_monthly.sh (the 1st, 09:00)
 ```
@@ -61,7 +61,7 @@ with numbers: `docs/EXPERIMENTS.md`; accuracy and method: `README.md`.
 | CAMS via Open-Meteo air-quality | `sources/cams.py` | PM2.5, PM10, dust: a merged series since 2022-08 + 5-day forecast | Inputs for horizons ≤ 24 h only |
 | SILAM (FMI), public S3 bucket `fmi-opendata-silam-surface-netcdf` | `silam.py` | 5-day PM2.5 and PM10 forecast at the Tashkent point and a 3×3 square, since 2026-09-26 | Not a model input but a benchmark. FMI keeps ~32 runs, so each new one is copied at once: HDF5 read by HTTP range requests (h5py), ~2 min per run; written once after checks (10 files, 120 consecutive hours, a point near Tashkent, 0–3000 µg/m³, PM10 ≥ PM2.5); a failed run is retried the next day. Licence CC BY 4.0 |
 | Sentinel-5P/TROPOMI NO₂, MEEO copy on AWS Open Data (`s3://meeo-s5p`, no account) | `satellite.py` | tropospheric NO₂ column and qa_value of each overpass (GeoTIFF, 0.035° grid): mean over the city (≤ 15 km) and in a 30–50 km ring, qa ≥ 75, since 2018 | Not a model input. A 1.4°×1° window read by HTTP range requests (rasterio), overpasses 07:00–10:30 UTC only; OFFL (final, ~9 days later) and NRTI (same day) kept apart, OFFL preferred |
-| NASA FIRMS, VIIRS Suomi NPP | `satellite.py` | fire detections within 200 km: the open 7-day file of the Russia_Asia region and yearly country archives (Uzbekistan, Kazakhstan, Tajikistan, Kyrgyzstan; 2018–2025) | NASA publishes a year's archive the following year. Persistent heat sources (archive type 2 and 0.01° cells lit on 30+ days) are counted apart from fires |
+| NASA FIRMS, VIIRS Suomi NPP (archives 2018–2025, days to 2 Nov 2026), VIIRS NOAA-20 (days from 11 Nov 2026, archives from 2026) | `satellite.py` | fire detections within 200 km: the open NOAA-20 7-day file of the Russia_Asia region and yearly country archives (Uzbekistan, Kazakhstan, Tajikistan, Kyrgyzstan; `viirs-snpp` to 2025, `viirs-jpss1` from 2026) | NASA ended Suomi NPP data production at 13:00 UTC on 2 Nov 2026; NOAA-20 carries the same VIIRS in the same orbit (2025: 5949 vs 5727 detections within 200 km). NASA publishes a year's archive the following year, which then replaces that year's days; 2–10 Nov 2026 stay empty until then. Persistent heat sources (archive type 2 and 0.01° cells lit on 30+ days) are counted apart from fires |
 
 First full download: `python -m aqf.bootstrap` (~30–40 min). Daily update: `forecast.refresh_data()`,
 each source on its own; a failure of one does not stop the forecast (a warning, the cache is used).
@@ -169,7 +169,9 @@ monthly against real errors (`monthly.check_bands`).
 - `site.py` builds the Vercel version: `index.html` (the same page + Vercel Web Analytics, no
   cookies), `api/latest.js` (the live value from `LATEST_AQI_URL`; 5 min edge cache, 30 s for the
   refresh button, 30 s in memory), `vercel.json` (security headers: CSP with hashes of the inline
-  scripts, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy).
+  scripts, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy) and the site icon (`icon.py`:
+  an AQI gauge, a half-ring in the category colours with a needle; `icon.svg`, `favicon.ico` 16/32/48,
+  `apple-touch-icon.png` 180, drawn at every build, no binary files in git).
 - `output/dashboard.html` alone has no live value (it shows the value as of the forecast run); the
   author also keeps it as a claude.ai artifact, where requests to other hosts are blocked.
 - When the forecast is more than 30 h old, the page says so.
